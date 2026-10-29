@@ -11,7 +11,7 @@ type Loop = { idea: { original: string; refined: string } | null; plan: { summar
 type DraftTask = { title: string; description: string; dependencies: string[] };
 const blankTask = (): DraftTask => ({ title: "", description: "", dependencies: [] });
 
-export function ProjectLoop({ project, proposal, clearProposal }: { project: { id: string; name: string; settings?: ProjectSettings }; proposal?: string; clearProposal?: () => void }) {
+export function ProjectLoop({ project, proposal, clearProposal, active = true }: { active?: boolean; project: { id: string; name: string; settings?: ProjectSettings }; proposal?: string; clearProposal?: () => void }) {
   const base = `/api/projects/${encodeURIComponent(project.id)}/loop`;
   const [state, setState] = useState<Loop>();
   const [original, setOriginal] = useState("");
@@ -28,14 +28,17 @@ export function ProjectLoop({ project, proposal, clearProposal }: { project: { i
   const revision = useRef(0);
   const pendingRef = useRef(false);
   const loadError = useRef(false);
+  const readPending = useRef(false);
 
   const load = useCallback(async () => {
-    if (pendingRef.current) return;
+    if (pendingRef.current || readPending.current) return;
+    readPending.current = true;
     const current = revision.current;
     try { const next = await request<Loop>(base); if (current === revision.current && !pendingRef.current) { setState(next); if (loadError.current) { setError(""); loadError.current = false; } } }
     catch (cause) { if (current === revision.current && !pendingRef.current) { loadError.current = true; setError(message(cause)); } }
+    finally { readPending.current = false; }
   }, [base]);
-  useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 3000); return () => clearInterval(timer); }, [load]);
+  useEffect(() => { if (!active) return; void load(); const timer = window.setInterval(() => void load(), 3000); return () => { revision.current++; clearInterval(timer); }; }, [load, active]);
   useEffect(() => {
     if (!state || initialized) return;
     setOriginal(state.idea?.original ?? ""); setRefined(state.idea?.refined ?? "");
@@ -59,7 +62,7 @@ export function ProjectLoop({ project, proposal, clearProposal }: { project: { i
   const controlsBusy = Boolean(pending || state?.active);
   const taskName = (id: string) => state?.tasks.find((task) => task.id === id)?.title ?? id;
 
-  return <section className="project-loop" aria-label={`${project.name} project work`}>
+  return <section className="project-loop" hidden={!active} aria-label={`${project.name} project work`}>
     <header className="loop-heading"><div><h1>{project.name}</h1><p>Idea, plan, tasks, and review</p></div><span role="status">{state?.active ? "Run in progress" : pending ? "Saving…" : "Ready"}</span></header>
     {error && <div className="loop-error" role="alert">{error}</div>}
     {!state ? <p role="status">Loading project work…</p> : <>

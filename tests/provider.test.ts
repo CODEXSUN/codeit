@@ -45,6 +45,12 @@ test("Gemini streams, preserves inputs and continues after a stored turn", async
     const chat = new Chat(store, record);
     await chat.send(input);
     assert.equal(chat.provider(), "gemini");
+    const user = record.events.find((item) => item.type === "user")!;
+    const end = record.events.find((item) => item.type === "finished")!;
+    assert.equal(user.turnKey, end.turnKey);
+    assert.equal(typeof user.startedAt, "string");
+    assert.equal(typeof end.finishedAt, "string");
+    assert.equal(record.events.find((item) => item.type === "delta")?.turnKey, user.turnKey);
     assert.equal(record.events.filter((item) => item.type === "delta").map((item) => item.delta).join(""), "Hello world");
     const reopened = new Store(directory);
     const saved = reopened.chat(record.id)!;

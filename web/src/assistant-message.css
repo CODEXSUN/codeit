@@ -1,0 +1,13 @@
+.assistant-message { min-width: 0; color: #262626; font-size: 15px; line-height: 1.65; overflow-wrap: anywhere; }
+.assistant-message > :first-child { margin-top: 0; }
+.assistant-message > :last-child { margin-bottom: 0; }
+.assistant-message p, .assistant-message ul, .assistant-message ol, .assistant-message blockquote, .assistant-message pre, .assistant-message .assistant-table { margin: 0 0 12px; }
+.assistant-message h1, .assistant-message h2, .assistant-message h3, .assistant-message h4, .assistant-message h5, .assistant-message h6 { margin: 18px 0 8px; color: #171717; font-weight: 650; line-height: 1.35; }
+.assistant-message h1 { font-size: 20px; }.assistant-message h2 { font-size: 18px; }.assistant-message h3, .assistant-message h4, .assistant-message h5, .assistant-message h6 { font-size: 16px; }
+.assistant-message ul, .assistant-message ol { padding-left: 24px; }.assistant-message ul { list-style: disc; }.assistant-message ol { list-style: decimal; }.assistant-message li + li { margin-top: 4px; }.assistant-message li > p { margin-bottom: 6px; }
+.assistant-message a { color: #344f71; text-decoration: underline; text-underline-offset: 2px; }
+.assistant-message blockquote { border-left: 3px solid #d4d4d4; padding-left: 14px; color: #525252; }
+.assistant-message :not(pre) > code { border-radius: 4px; background: #f1f1f1; padding: 2px 4px; font: 0.88em ui-monospace, SFMono-Regular, Consolas, monospace; }
+.entry .assistant-message pre { max-width: 100%; overflow: auto; white-space: pre; overflow-wrap: normal; border: 1px solid #e5e5e5; border-radius: 8px; background: #f7f7f7; padding: 12px 14px; font: 13px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.assistant-message .assistant-table { max-width: 100%; overflow-x: auto; }.assistant-message table { border-collapse: collapse; font-size: 14px; }.assistant-message th, .assistant-message td { border: 1px solid #dedede; padding: 7px 10px; text-align: left; }.assistant-message th { background: #f7f7f7; font-weight: 600; }
+.assistant-message hr { margin: 16px 0; border: 0; border-top: 1px solid #e5e5e5; }

@@ -1,8 +1,24 @@
 # Changelog
 
-Current version: 1.0.1
-Release tag: v-1.0.1
-Changelog label: v 1.0.1
+Current version: 1.0.2
+Release tag: v-1.0.2
+Changelog label: v 1.0.2
+
+## v-1.0.2
+
+### [v 1.0.2] 2026-10-29 04:49 pm - Chat activity and workspace updates
+
+#### Database Changes
+
+- Database update: Yes.
+
+#### App Codebase Changes
+
+- Bumped workspace version to 1.0.2.
+- Added expandable chat activity for reported commands, file changes, searches, tools, and compaction.
+- Tested real command, file-change, and web-search events in a disposable browser fixture.
+- Replayed real manually requested compaction events in the fixture. Automatic compaction remains unverified.
+- Added provider preferences and Settings updates described in the previous entry.
 
 ## v-1.0.1
 
@@ -22,9 +38,14 @@ Changelog label: v 1.0.1
 - Added provider and model selection, attachments, OCR, voice input, and draft preservation.
 - Added sanitized Codex discovery failure categories and unavailable status for empty model lists.
 - Removed exact duplicate streamed messages from worker-review prompts while retaining review evidence.
-- Added provider-reported Codex usage display when valid usage is available. Usage tests use mocks.
-- Live token usage and savings are not quantified. Manual-review recovery remains in progress.
-- Gemini requires a server environment key. Provider settings work remains unfinished.
+- Added provider-reported Codex usage display and a gate for usage replay before a resumed turn.
+- Live testing also observed stale usage after resume. Turn-ID filtering is in progress.
+- Token savings are not quantified. Manual-review recovery remains in progress.
+- Added workspace, project, and chat provider preferences with SQLite revision checks and inheritance.
+- Added provider status tests and settings access from the workspace rail and project menu.
+- Isolated UI tests covered preference overrides, inheritance, restart, and Codex availability.
+- Gemini live use and credential-manager integration remain untested or unavailable. Gemini requires a server environment key.
+- Theme remains light-only. Connectors are not configurable, and removed-chat preferences are not automatically cleaned.
 - Added split and combined local startup, environment configuration, and safe shutdown controls.
 - Added port takeover with listener checks and a guard for combined-supervisor sibling services.
 - Forced stops can lose buffered work. A final PID reuse race remains possible.

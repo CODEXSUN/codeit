@@ -4,6 +4,8 @@ Codeit stores projects, chats, loops, and supervisors in `CODEIT_DATA_DIR/codeit
 
 The domain stores keep their current document shapes. The SQLite adapter uses Kysely's SQL compiler to build parameterized queries and Node's synchronous SQLite driver to execute them. It does not use an interchangeable Kysely execution driver. A schema version controls database migrations. Each document write uses a revision check. A stale writer fails instead of replacing a newer document. The API uses a lock file to prevent a second Codeit process from using the same directory. Other programs must not write to this database.
 
+Non-secret preferences use a separate SQLite document. Chat overrides take precedence over project overrides, workspace defaults, and built-in defaults. Provider, model, and reasoning form one selection. A saved selection does not prove that a provider or model is available. Only the current light theme is supported. Settings writes require the revision returned by the API. A stale revision is rejected. The preferences API does not accept credential fields. Overrides for deleted chats remain in storage but cannot be accessed through that deleted chat's API scope.
+
 ## Import existing JSON
 
 1. Stop all Codeit servers and older Codeit processes that use the data directory.

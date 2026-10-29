@@ -10,7 +10,10 @@ import { GeminiClient } from "./gemini.js";
 import { registerLoopRoutes } from "./loop-routes.js";
 import { registerSupervisorRoutes } from "./supervisor-routes.js";
 import { registerDocsRoutes } from "./docs-routes.js";
+import { registerPreferencesRoutes } from "./preferences-routes.js";
+import { registerProviderStatusRoutes } from "./provider-status.js";
 import { acquireStorageLock } from "./storage-lock.js";
+import { startHeartbeat } from "./sse-heartbeat.js";
 import { setStorageFailureHandler, StorageError } from "./storage.js";
 import { loadConfig } from "../../tools/config.mjs";
 
@@ -46,6 +49,8 @@ app.addHook("onRequest", async (request, reply) => {
 const loopRunner = registerLoopRoutes(app, store);
 const supervisor = registerSupervisorRoutes(app, store);
 registerDocsRoutes(app, store);
+registerPreferencesRoutes(app, store);
+registerProviderStatusRoutes(app);
 
 type IdParams = { id: string };
 const nameSchema = z.object({ name: z.string().trim().min(1).max(100) });
@@ -132,6 +137,7 @@ app.get<{ Params: IdParams }>("/api/chats/:id/events", async (request, reply) =>
   reply.raw.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-store", Connection: "keep-alive" });
   const send = (event: unknown) => reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
   streams.add(reply.raw);
+  startHeartbeat(reply.raw);
   const unsubscribe = chat.subscribe(send);
   request.raw.on("close", () => { unsubscribe(); streams.delete(reply.raw); });
 });

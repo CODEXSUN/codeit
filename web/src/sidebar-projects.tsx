@@ -4,19 +4,21 @@ import type { ProjectSettings } from "./project-dialog.js";
 
 export type ChatSummary = { id: string; name: string; archived?: boolean };
 export type ProjectSummary = { id: string; name: string; settings?: ProjectSettings; chats: ChatSummary[] };
-type Props = { projects: ProjectSummary[]; selected: string; select: (id: string) => void; edit: (kind: "project" | "chat", item: ProjectSummary | ChatSummary) => void; create: (kind: "project" | "chat", projectId?: string) => void; archive: (chat: ChatSummary, archived: boolean) => void; remove: (chat: ChatSummary) => void; settings: (project: ProjectSummary) => void };
+type Props = { projects: ProjectSummary[]; selected: string; select: (id: string) => void; edit: (kind: "project" | "chat", item: ProjectSummary | ChatSummary) => void; create: (kind: "project" | "chat", projectId?: string) => void; archive: (chat: ChatSummary, archived: boolean) => void; remove: (chat: ChatSummary) => void; settings: (project: ProjectSummary) => void; preferences: (project: ProjectSummary) => void };
 
-export function SidebarProjects({ projects, selected, select, edit, create, archive, remove, settings }: Props) {
+export function SidebarProjects({ projects, selected, select, edit, create, archive, remove, settings, preferences }: Props) {
   const [showArchived, setShowArchived] = useState(false);
   return <>
     <div className="sidebar-heading"><span>Projects</span><button className="icon-button" type="button" aria-label="Create project" title="Create project" onClick={() => create("project")}>+</button></div>
-    <nav className="project-list" aria-label="Projects and chats">
+    <nav className="project-list px-1 py-1" aria-label="Projects and chats">
       {projects.length === 0 && <p className="sidebar-empty">No projects yet. Create one to get started.</p>}
       {projects.map((project) => {
         const chats = project.chats.filter((chat) => Boolean(chat.archived) === showArchived);
         return <section className="project" key={project.id}>
-          <div className="project-row"><span className="project-icon" aria-hidden="true"><Icon name="folder" /></span><span className="project-name" title={project.name}>{project.name}</span>
-            <ProjectMenu project={project} onNewChat={() => { setShowArchived(false); create("chat", project.id); }} onRename={() => edit("project", project)} onSettings={() => settings(project)} />
+          <div className="project-row group"><span className="project-icon" aria-hidden="true"><Icon name="folder" /></span><span className="project-name" title={project.name}>{project.name}</span>
+            <button className="icon-button opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100" type="button" aria-label={`Rename project ${project.name}`} title="Rename project" onClick={() => edit("project", project)}><Icon name="edit" /></button>
+            <ProjectMenu project={project} onNewChat={() => { setShowArchived(false); create("chat", project.id); }} onRename={() => edit("project", project)} onSettings={() => settings(project)} onPreferences={() => preferences(project)} />
+            <button className="icon-button opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100" type="button" aria-label={`New chat in ${project.name}`} title="New chat" onClick={() => { setShowArchived(false); create("chat", project.id); }}><Icon name="addchat" /></button>
           </div>
           <div className="chat-list">{chats.map((chat) => <div className={`chat-row ${selected === chat.id && !showArchived ? "active" : ""}`} key={chat.id}>
             {showArchived ? <div className="chat-link archived-name"><span aria-hidden="true"><Icon name="chat" /></span><span>{chat.name}</span></div> : <button type="button" className="chat-link" onClick={() => select(chat.id)} aria-current={selected === chat.id ? "page" : undefined}><span aria-hidden="true"><Icon name="chat" /></span><span>{chat.name}</span></button>}
@@ -33,8 +35,10 @@ export function SidebarProjects({ projects, selected, select, edit, create, arch
   </>;
 }
 
-export function Icon({ name }: { name: "folder" | "chat" | "edit" | "menu" | "more" | "archive" | "restore" | "delete" }) {
+export function Icon({ name }: { name: "folder" | "chat" | "edit" | "menu" | "more" | "archive" | "restore" | "delete" | "settings" | "addchat" }) {
   const paths = {
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" /></>,
+    addchat: <><path d="M4 5h16v11H8l-4 3zM12 8v5M9.5 10.5h5" /></>,
     folder: <path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
     chat: <path d="M4 5h16v11H8l-4 3z" />,
     edit: <><path d="m4 20 4-1 11-11-3-3L5 16z" /><path d="m14 7 3 3" /></>,

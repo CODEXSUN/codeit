@@ -1,0 +1,15 @@
+.settings-workspace { flex: 1; min-width: 0; overflow: auto; padding: 32px clamp(24px, 5vw, 72px); display: flex; flex-direction: column; gap: 24px; }
+.settings-workspace h1, .settings-workspace h2, .settings-workspace h3, .settings-workspace p { margin: 0; }
+.settings-workspace header, .settings-body { display: flex; flex-direction: column; gap: 14px; max-width: 780px; }
+.settings-workspace p, .settings-statuses span { color: #525252; line-height: 1.5; }
+.settings-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid #e5e5e5; }
+.settings-tabs button, .settings-statuses button, .settings-actions button { border: 1px solid #ddd; border-radius: 6px; background: white; padding: 8px 12px; color: #262626; }
+.settings-tabs button[aria-current="page"] { background: #262626; color: white; border-color: #262626; }
+.settings-statuses { display: flex; flex-direction: column; gap: 12px; }
+.settings-statuses > div { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.settings-fields { display: flex; flex-wrap: wrap; gap: 16px; margin: 0; padding: 0; border: 0; }
+.settings-fields label { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
+.settings-fields select { border: 1px solid #ccc; border-radius: 6px; background: white; color: #262626; padding: 8px; }
+.settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.settings-error { color: #a32222 !important; }
+@media (max-width: 650px) { .settings-statuses > div { grid-template-columns: 1fr; } .settings-workspace { padding: 24px 18px; } }

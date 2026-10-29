@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { DummyDriver, Kysely, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler, type CompiledQuery } from "kysely";
 
-type Domain = "projects" | "loops" | "supervisors";
+type Domain = "projects" | "loops" | "supervisors" | "preferences";
 type Database = { documents: { domain: string; body: string; revision: number } };
 const query = new Kysely<Database>({ dialect: {
   createAdapter: () => new SqliteAdapter(),
@@ -73,6 +73,7 @@ export class DocumentRepository {
   private failed = false;
   private readonly directory: string;
   constructor(private readonly domain: Domain, directory?: string) { this.directory = dataDirectory(directory); }
+  version() { this.assertHealthy(); return this.revision ?? 0; }
   assertHealthy() { if (this.failed) throw new StorageError("Storage is unavailable after a failed write; restart Codeit."); }
   read(): unknown | undefined {
     const db = openDatabase(this.directory);
