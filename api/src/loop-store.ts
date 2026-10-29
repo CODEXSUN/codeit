@@ -11,7 +11,7 @@ const manualReviewSchema = z.object({
 });
 const runSchema = z.object({ id: z.string(), kind: z.enum(["worker", "review", "manual_review"]), status: z.enum(["running", "completed", "failed", "interrupted"]), events: z.array(eventSchema), error: z.string().optional(), manualReview: manualReviewSchema.optional() });
 const taskSchema = z.object({ id: z.string(), title: z.string(), description: z.string(), dependencies: z.array(z.string()), status: z.enum(["pending", "running", "needs_review", "reviewing", "changes_requested", "accepted", "failed"]), runs: z.array(runSchema), findings: z.string().optional() });
-export const stateSchema = z.object({ idea: z.object({ original: z.string(), refined: z.string() }).nullable(), plan: z.object({ summary: z.string(), criteria: z.array(z.string()), approved: z.boolean(), approvedSettings: projectSettingsSchema.optional() }).nullable(), tasks: z.array(taskSchema), active: z.object({ taskId: z.string(), runId: z.string(), approval: z.object({ id: z.string(), method: z.string(), params: z.unknown() }).optional() }).optional() });
+export const stateSchema = z.object({ idea: z.object({ original: z.string(), refined: z.string(), ideaId: z.string().optional() }).nullable(), plan: z.object({ summary: z.string(), criteria: z.array(z.string()), approved: z.boolean(), approvedSettings: projectSettingsSchema.optional() }).nullable(), tasks: z.array(taskSchema), active: z.object({ taskId: z.string(), runId: z.string(), approval: z.object({ id: z.string(), method: z.string(), params: z.unknown() }).optional() }).optional() });
 export type LoopState = z.infer<typeof stateSchema>;
 export type Task = z.infer<typeof taskSchema>;
 export type Run = z.infer<typeof runSchema>;
@@ -36,10 +36,10 @@ export class LoopStore {
   }
 
   get(id: string): LoopState { this.repository.assertHealthy(); return this.states[id] ??= { idea: null, plan: null, tasks: [] }; }
-  setIdea(id: string, idea: { original: string; refined: string }) {
+  setIdea(id: string, idea: { original: string; refined: string; ideaId?: string }) {
     const state = this.get(id);
     if (state.plan?.approved) throw new Error("The approved plan cannot be changed.");
-    state.idea = idea; state.plan = null; state.tasks = []; this.save();
+    state.idea = { ...idea, ideaId: idea.ideaId ?? state.idea?.ideaId }; state.plan = null; state.tasks = []; this.save();
     return state;
   }
   setPlan(id: string, input: { summary: string; criteria: string[]; tasks: { title: string; description: string; dependencies: string[] }[] }) {

@@ -14,6 +14,7 @@ export function registerProviderStatusRoutes(app: FastifyInstance) {
 export async function codexStatus(rpc = new CodexRpc()) {
   try {
     await rpc.connect();
+    const account = await readCodexAccount(rpc);
     const models: CodexModel[] = [];
     let cursor: string | null = null;
     do {
@@ -21,10 +22,22 @@ export async function codexStatus(rpc = new CodexRpc()) {
       models.push(...page.data);
       cursor = page.nextCursor;
     } while (cursor);
-    return models.length ? { available: true, models } : { available: false, models: [], reason: "Codex returned no available models. Check your sign-in and model access." };
+    return models.length ? { available: true, models, account } : { available: false, models: [], account, reason: "Codex returned no available models. Check your sign-in and model access." };
   } catch (error) {
     return { available: false, models: [], reason: codexDiscoveryReason(error) };
   } finally { rpc.close(); }
+}
+
+async function readCodexAccount(rpc: CodexRpc) {
+  try {
+    const result = await rpc.request("account/read", { refreshToken: false });
+    if (result?.account === null) return { state: result.requiresOpenaiAuth === true ? "signed_out" : "unknown" };
+    if (!result?.account || typeof result.account !== "object") return { state: "unknown" };
+    const type = result.account.type;
+    if (!["chatgpt", "apiKey", "amazonBedrock", "gcp"].includes(type)) return { state: "unknown" };
+    const email = result.account.email;
+    return { state: "signed_in", type, ...(type === "chatgpt" && typeof email === "string" && email.length <= 320 && /^[^\s@]+@[^\s@]+$/.test(email) ? { email } : {}) };
+  } catch { return { state: "unknown" }; }
 }
 
 export async function geminiStatus(client = GeminiClient.fromEnvironment()) {

@@ -5,6 +5,8 @@ import { Conversation } from "./conversation.js";
 import { ProjectLoop } from "./project-loop.js";
 import { WorkspaceRail, ProjectMenuList, type Workspace } from "./workspace-nav.js";
 import { DocsWorkspace } from "./docs-workspace.js";
+import { IdeasWorkspace } from "./ideas-workspace.js";
+import { PromptWorkspace } from "./prompt-workspace.js";
 import { SettingsWorkspace } from "./settings-workspace.js";
 import { Supervisor } from "./supervisor.js";
 import { Icon, SidebarProjects, type ChatSummary as Chat, type ProjectSummary as Project } from "./sidebar-projects.js";
@@ -47,7 +49,7 @@ export function App() {
     } catch (cause) { if (requestId === projectRequest.current) setError(message(cause)); }
     finally { if (requestId === projectRequest.current) setProjectsLoaded(true); }
   }
-  useEffect(() => { void loadProjects(); return () => { projectRequest.current++; }; }, []);
+  useEffect(() => { const refresh = () => void loadProjects(); refresh(); window.addEventListener("codeit:projects-changed", refresh); return () => { window.removeEventListener("codeit:projects-changed", refresh); projectRequest.current++; }; }, []);
   useEffect(() => { if (workProject) setOpenedProjects((current) => current.includes(workProject) ? current : [...current, workProject]); }, [workProject]);
   useEffect(() => { if (selected) setOpenedChats((current) => current.includes(selected) ? current : [...current, selected]); }, [selected]);
   useEffect(() => { try { sessionStorage.setItem("codeit-view", JSON.stringify({ workspace, chatId: selected, projectId: workProject })); } catch { /* Storage may be unavailable. */ } }, [workspace, selected, workProject]);
@@ -95,7 +97,7 @@ export function App() {
 
   function switchWorkspace(value: Workspace) { setWorkspace(value); setVisited((current) => current.includes(value) ? current : [...current, value]); setSidebarOpen(window.innerWidth > 650); }
   function chooseProject(id: string) { setWorkProject(id); if (window.innerWidth <= 650) setSidebarOpen(false); }
-  const docsView = workspace === "docs" || workspace === "rules" || workspace === "settings";
+  const docsView = workspace === "docs" || workspace === "rules" || workspace === "settings" || workspace === "prompts";
   return <main className="app h-dvh overflow-hidden">
     <WorkspaceRail value={workspace} onChange={switchWorkspace} />
     <aside className={`sidebar ${sidebarOpen && !docsView ? "" : "closed"}`} aria-label={`${workspace} navigation`}>
@@ -107,10 +109,11 @@ export function App() {
       <header className="header"><div className="header-path overflow-hidden"><button type="button" className="icon-button sidebar-toggle" aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"} onClick={() => setSidebarOpen(!sidebarOpen)}><Icon name="menu" /></button><span>{workspace === "chat" ? project?.name ?? "Chat" : workspace === "automation" ? "Automation" : work?.name ?? "Projects"}</span>{workspace === "chat" && chat && <><span className="separator">/</span><strong>{chat.name}</strong><button className="icon-button header-rename" type="button" aria-label={`Rename chat ${chat.name}`} title="Rename chat" onClick={() => edit("chat", chat)}><Icon name="edit" /></button></>}</div>{workspace === "chat" && chat && <span className="connection" role="status" aria-label={`Codex ${connection}`}><span className={`dot ${connection}`} /><span className="hidden min-[400px]:inline">Codex {connection === "connecting" ? "connecting…" : connection}</span></span>}</header>
       {error && <div className="app-error" role="alert">{error}<button type="button" onClick={() => setError("")} aria-label="Dismiss error">×</button></div>}
       <div className="workspace-slot overflow-hidden" hidden={workspace !== "chat"}>{(selected && !openedChats.includes(selected) ? [...openedChats, selected] : openedChats).map((id) => { const entry = projects.flatMap((item) => item.chats).find((item) => item.id === id && !item.archived); return entry ? <Conversation key={id} chat={entry} active={workspace === "chat" && id === selected} onConnectionChange={setConnection} /> : null; })}{!chat && <div className="no-chat" role="status"><h1>{projectsLoaded ? "Select a chat" : "Loading chats…"}</h1>{projectsLoaded && <p>Choose a chat from a project to start working.</p>}</div>}</div>
-      {visited.includes("ideas") && <div className="workspace-slot workspace-scroll overflow-y-auto overscroll-contain" hidden={workspace !== "ideas"}>{(workProject && !openedProjects.includes(workProject) ? [...openedProjects, workProject] : openedProjects).map((id) => { const item = projects.find((entry) => entry.id === id); return item ? <Supervisor key={id} active={workspace === "ideas" && id === workProject} project={item} openPlan={() => switchWorkspace("projects")} handoff={(text) => { setProposal({ projectId: id, text }); switchWorkspace("projects"); }} /> : null; })}{!work && <div className="workspace-empty"><h1>No project selected</h1><p>Create or select a project to discuss ideas.</p></div>}</div>}
+      {visited.includes("ideas") && <div className="workspace-slot workspace-scroll overflow-y-auto overscroll-contain" hidden={workspace !== "ideas"}>{(workProject && !openedProjects.includes(workProject) ? [...openedProjects, workProject] : openedProjects).map((id) => { const item = projects.find((entry) => entry.id === id); return item ? <div key={id} hidden={workspace !== "ideas" || id !== workProject}><IdeasWorkspace projectId={id} active={workspace === "ideas" && id === workProject} /><Supervisor active={workspace === "ideas" && id === workProject} project={item} openPlan={() => switchWorkspace("projects")} handoff={(text) => { setProposal({ projectId: id, text }); switchWorkspace("projects"); }} /></div> : null; })}{!work && <div className="workspace-empty"><h1>No project selected</h1><p>Create or select a project to discuss ideas.</p></div>}</div>}
       {visited.includes("projects") && <div className="workspace-slot workspace-scroll overflow-y-auto overscroll-contain" hidden={workspace !== "projects"}>{(workProject && !openedProjects.includes(workProject) ? [...openedProjects, workProject] : openedProjects).map((id) => { const item = projects.find((entry) => entry.id === id); return item ? <ProjectLoop key={id} active={workspace === "projects" && id === workProject} project={item} proposal={proposal?.projectId === id ? proposal.text : undefined} clearProposal={() => setProposal(undefined)} /> : null; })}{!work && <div className="workspace-empty"><h1>No project selected</h1><p>Create or select a project to manage its plan and tasks.</p></div>}</div>}
       {workspace === "automation" && <div className="workspace-empty"><h1>Automation</h1><p>Automation is not available in Codeit yet.</p></div>}
     </section>
+    {workspace === "prompts" && <div className="workspace-content min-h-0"><PromptWorkspace projects={projects} projectId={workProject} onProject={chooseProject} /></div>}
     {visited.includes("docs") && <div className="workspace-content min-h-0" hidden={workspace !== "docs"}><DocsWorkspace projects={projects} projectId={workProject} onProject={chooseProject} /></div>}
     {visited.includes("rules") && <div className="workspace-content min-h-0" hidden={workspace !== "rules"}><DocsWorkspace projects={projects} projectId={workProject} onProject={chooseProject} rules /></div>}
     {visited.includes("settings") && <div className="workspace-content min-h-0" hidden={workspace !== "settings"}><SettingsWorkspace key={settingsTarget?.nonce ?? 0} projects={projects} initialProject={settingsTarget?.projectId ?? workProject} projectScope={Boolean(settingsTarget)} /></div>}
@@ -135,7 +138,7 @@ function readView(): { workspace: Workspace; chatId: string; projectId: string }
   const fallback = { workspace: "chat" as Workspace, chatId: "", projectId: "" };
   try {
     const value = JSON.parse(sessionStorage.getItem("codeit-view") ?? "null");
-    if (!value || !["chat", "ideas", "projects", "automation", "docs", "rules"].includes(value.workspace)) return fallback;
+    if (!value || !["chat", "prompts", "ideas", "projects", "automation", "docs", "rules", "settings"].includes(value.workspace)) return fallback;
     return { workspace: value.workspace, chatId: typeof value.chatId === "string" ? value.chatId : "", projectId: typeof value.projectId === "string" ? value.projectId : "" };
   } catch { return fallback; }
 }

@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { Chat } from "./chat.js";
 import { Store } from "./store.js";
@@ -10,8 +11,13 @@ import { GeminiClient } from "./gemini.js";
 import { registerLoopRoutes } from "./loop-routes.js";
 import { registerSupervisorRoutes } from "./supervisor-routes.js";
 import { registerDocsRoutes } from "./docs-routes.js";
+import { registerIdeasRoutes } from "./ideas-routes.js";
+import { PromptManager } from "./prompt-manager.js";
+import { registerPromptRoutes } from "./prompt-routes.js";
 import { registerPreferencesRoutes } from "./preferences-routes.js";
 import { registerProviderStatusRoutes } from "./provider-status.js";
+import { registerCodexThreadReference } from "./codex-thread-reference.js";
+import { registerCodexNameSync } from "./codex-name-sync.js";
 import { acquireStorageLock } from "./storage-lock.js";
 import { startHeartbeat } from "./sse-heartbeat.js";
 import { setStorageFailureHandler, StorageError } from "./storage.js";
@@ -26,6 +32,7 @@ app.setErrorHandler((error, _request, reply) => {
   return reply.send(error);
 });
 const store = new Store();
+const prompts = new PromptManager();
 const chats = new Map<string, Chat>();
 const streams = new Set<import("node:http").ServerResponse>();
 
@@ -46,11 +53,16 @@ app.addHook("onRequest", async (request, reply) => {
   reply.header("Cache-Control", "no-store");
 });
 
-const loopRunner = registerLoopRoutes(app, store);
-const supervisor = registerSupervisorRoutes(app, store);
+const loopRunner = registerLoopRoutes(app, store, prompts);
+loopRunner.setPromptManager(prompts);
+const supervisor = registerSupervisorRoutes(app, store, prompts);
 registerDocsRoutes(app, store);
+registerIdeasRoutes(app, store);
+registerPromptRoutes(app, store, prompts);
 registerPreferencesRoutes(app, store);
 registerProviderStatusRoutes(app);
+registerCodexThreadReference(app, store);
+registerCodexNameSync(app, store, (id) => chats.get(id)?.isBusy() ?? false);
 
 type IdParams = { id: string };
 const nameSchema = z.object({ name: z.string().trim().min(1).max(100) });
@@ -144,17 +156,31 @@ app.get<{ Params: IdParams }>("/api/chats/:id/events", async (request, reply) =>
 app.post<{ Params: IdParams }>("/api/chats/:id/refine", async (request, reply) => {
   const chat = getChat(request.params.id);
   if (!chat) return reply.code(404).send({ error: "Chat not found." });
-  const parsed = z.object({ text: z.string().min(1).max(100_000), selection: selectionSchema }).safeParse(request.body);
+  const parsed = z.object({ text: z.string().min(1).max(100_000), selection: selectionSchema, requestId: z.string().uuid() }).strict().safeParse(request.body);
   if (!parsed.success || !parsed.data.text.trim()) return reply.code(400).send({ error: "Enter a prompt to refine." });
-  try { validateSelection(parsed.data.selection, await chat.models()); return { text: await refinePrompt(parsed.data.text, parsed.data.selection) }; }
+  const project = store.projectForChat(request.params.id);
+  if (!project) return reply.code(404).send({ error: "Project not found." });
+  try {
+    validateSelection(parsed.data.selection, await chat.models());
+    const claim = prompts.claim({ projectId: project.id, chatId: request.params.id, requestId: parsed.data.requestId, source: "chat-refine", text: parsed.data.text });
+    if (!claim.created) return reply.code(409).send({ error: "This refinement was already recorded. Check the previous result before retrying." });
+    return { text: await refinePrompt(parsed.data.text, parsed.data.selection) };
+  }
   catch (error) { if (error instanceof StorageError) throw error; return reply.code(500).send({ error: error instanceof Error ? error.message : "Prompt refinement failed." }); }
 });
 app.post<{ Params: IdParams }>("/api/chats/:id/messages", async (request, reply) => {
   const parsed = messageSchema.safeParse(request.body);
-  if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid message." });
+  const requestId = z.object({ requestId: z.string().uuid() }).safeParse(request.body);
+  if (!parsed.success || !requestId.success) return reply.code(400).send({ error: "Invalid message or submission ID." });
   const chat = getChat(request.params.id);
-  if (!chat) return reply.code(404).send({ error: "Chat not found." });
-  try { await chat.send(parsed.data); return { ok: true }; }
+  const project = store.projectForChat(request.params.id);
+  if (!chat || !project) return reply.code(404).send({ error: "Chat not found." });
+  if (chat.isBusy()) return reply.code(409).send({ error: "A response is already in progress." });
+  try {
+    const claim = prompts.claim({ projectId: project.id, chatId: request.params.id, requestId: requestId.data.requestId, source: "chat", text: parsed.data.text, attachments: parsed.data.attachments.map((item) => item.kind === "text" ? { kind: item.kind, name: item.name, content: item.content } : { kind: item.kind, name: item.name, sha256: createHash("sha256").update(item.content).digest("hex"), ...(item.ocrText === undefined ? {} : { ocrText: item.ocrText }) }) });
+    if (!claim.created) return reply.code(409).send({ error: "This submission was already recorded. Check chat history before trying again." });
+    await chat.send(parsed.data); return { ok: true };
+  }
   catch (error) { if (error instanceof StorageError) throw error; return reply.code(500).send({ error: error instanceof Error ? error.message : "Codex could not start the turn." }); }
 });
 app.post<{ Params: { id: string; approvalId: string } }>("/api/chats/:id/approvals/:approvalId", async (request, reply) => {

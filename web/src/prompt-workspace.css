@@ -1,0 +1,17 @@
+.prompt-workspace { height: 100%; overflow: auto; padding: 32px; color: #262626; }
+.prompt-workspace > h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px; }
+.prompt-workspace > p { color: #525252; margin: 0 0 20px; }
+.prompt-workspace > label { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.prompt-workspace select, .prompt-detail textarea { border: 1px solid #d4d4d4; border-radius: 6px; background: white; padding: 8px; }
+.prompt-records { list-style: none; padding: 0; margin: 20px 0; max-width: 760px; border-top: 1px solid #e5e5e5; }
+.prompt-records button { width: 100%; text-align: left; padding: 10px 4px; border-bottom: 1px solid #e5e5e5; }
+.prompt-records button:hover { background: #f5f5f5; }
+.prompt-detail { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
+.prompt-detail h2 { font-size: 19px; font-weight: 600; }
+.prompt-detail h3 { font-size: 15px; font-weight: 600; margin-top: 8px; }
+.prompt-detail textarea { min-height: 160px; resize: vertical; }
+.prompt-detail > button { align-self: flex-start; background: #262626; color: white; border-radius: 6px; padding: 8px 12px; }
+.prompt-detail > button:disabled { opacity: .45; }
+.prompt-detail summary { cursor: pointer; padding: 6px 0; }
+.prompt-detail pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 8px; background: #f5f5f5; }
+@media (max-width: 650px) { .prompt-workspace { padding: 20px; } }

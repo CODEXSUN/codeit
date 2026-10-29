@@ -18,6 +18,7 @@ import { copyText } from "./copy-text.js";
 import { UserMessage } from "./user-message.js";
 import { AssistantMessage } from "./assistant-message.js";
 import { activityFromItem } from "./chat-activity.js";
+import { CodexThreadReference } from "./codex-thread-reference.js";
 
 
 
@@ -41,7 +42,9 @@ export function Conversation({ chat, onConnectionChange, active = true }: { chat
   const [clock, setClock] = useState(() => Date.now());
 
   const [prompt, setPrompt] = useState("");
+  const [promptExpanded, setPromptExpanded] = useState(false);
   const [providerRefresh, setProviderRefresh] = useState(0);
+  const [threadRefresh, setThreadRefresh] = useState(0);
   const [selection, setSelection] = useState<ProviderSelection>({ provider: "codex" });
   const [preferencesReady, setPreferencesReady] = useState(false);
   const [preferencesVersion, setPreferencesVersion] = useState(0);
@@ -71,6 +74,8 @@ export function Conversation({ chat, onConnectionChange, active = true }: { chat
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const sendAbort = useRef<AbortController | null>(null);
+  const submission = useRef<{ payload: string; id: string } | null>(null);
+  const refinementSubmission = useRef<{ payload: string; id: string } | null>(null);
 
   const [approval, setApproval] = useState<Approval | null>(null);
 
@@ -78,6 +83,7 @@ export function Conversation({ chat, onConnectionChange, active = true }: { chat
 
   const end = useRef<HTMLDivElement>(null);
   const history = useRef<HTMLDivElement>(null);
+  const approvalPanel = useRef<HTMLElement>(null);
   const followHistory = useRef(true);
   const [awayFromEnd, setAwayFromEnd] = useState(false);
 
@@ -96,7 +102,7 @@ export function Conversation({ chat, onConnectionChange, active = true }: { chat
     let settled = false;
     const version = selectionVersion.current;
     preferencesDirty.current = false;
-    request<{ effective: { selection: ProviderSelection } }>(`/api/preferences?chatId=${encodeURIComponent(chat.id)}`).then((result) => {
+    loadChatPreferences(chat.id).then((result) => {
       if (cancelled) return;
       if (version === selectionVersion.current) { setSelection(result.effective.selection); setProviderRefresh((value) => value + 1); }
       setPreferencesError("");
@@ -143,6 +149,7 @@ export function Conversation({ chat, onConnectionChange, active = true }: { chat
 
       if ((event.type === "user" || event.type === "finished") && event.turnKey) { if (replaying) replayTiming = updateTiming(replayTiming, event); else { setTiming((current) => updateTiming(current, event)); if (event.type === "user") setClock(Date.now()); } }
       if (event.type === "ready") { replaying = false; setTiming(replayTiming); setEntries(replayEntries); setApproval(replayApproval); setConnected(true); setLoaded(true); setBusy(Boolean(event.busy)); }
+      if (event.type === "thread") setThreadRefresh((value) => value + 1);
 
       if (event.type === "connection" && (event.status === "connecting" || event.status === "connected" || event.status === "disconnected")) onConnectionChange(event.status);
 
@@ -200,9 +207,9 @@ export function Conversation({ chat, onConnectionChange, active = true }: { chat
 
     const input = promptInput.current;
 
-    if (input) { input.style.height = "auto"; input.style.height = `${Math.min(input.scrollHeight, 144)}px`; }
+    if (input) { input.style.height = promptExpanded ? "" : "auto"; if (!promptExpanded) input.style.height = `${Math.min(input.scrollHeight, 144)}px`; }
 
-  }, [prompt]);
+  }, [prompt, promptExpanded, active]);
 
   useEffect(() => () => { copySequence.current++; clearTimeout(copyTimer.current); }, []);
   async function copyEntry(entry: Entry) {
@@ -221,12 +228,15 @@ export function Conversation({ chat, onConnectionChange, active = true }: { chat
     const version = promptVersion.current;
 
     const text = prompt;
+    const payload = JSON.stringify({ text, selection });
+    if (!refinementSubmission.current || refinementSubmission.current.payload !== payload) refinementSubmission.current = { payload, id: crypto.randomUUID() };
 
     setRefining(true); setRefineError(""); setRefinedDraft("");
 
     try {
 
-      const result = await request<{ text: string }>(`${base}/refine`, "POST", { text, selection });
+      const result = await request<{ text: string }>(`${base}/refine`, "POST", { text, selection, requestId: refinementSubmission.current.id });
+      refinementSubmission.current = null;
 
       if (version === promptVersion.current) updatePrompt(result.text);
 
@@ -250,8 +260,10 @@ export function Conversation({ chat, onConnectionChange, active = true }: { chat
 
     setBusy(true); setSending(true); setSendError("");
     const controller = new AbortController(); sendAbort.current = controller;
+    const payload = JSON.stringify({ text, attachments, selection });
+    if (!submission.current || submission.current.payload !== payload) submission.current = { payload, id: crypto.randomUUID() };
 
-    try { await sendChatMessage(`${base}/messages`, { text, attachments, selection }, controller.signal); if (version === promptVersion.current) updatePrompt(""); setAttachments([]); setProviderRefresh((value) => value + 1); }
+    try { await sendChatMessage(`${base}/messages`, { text, attachments, selection, requestId: submission.current.id }, controller.signal); submission.current = null; if (version === promptVersion.current) updatePrompt(""); setAttachments([]); setProviderRefresh((value) => value + 1); }
 
     catch (error) { setBusy(false); setSendError((controller.signal.aborted || error instanceof TypeError) ? "Connection lost. The message may have started; check chat history before retrying." : message(error)); }
     finally { if (sendAbort.current === controller) sendAbort.current = null; setSending(false); }
@@ -273,6 +285,7 @@ export function Conversation({ chat, onConnectionChange, active = true }: { chat
   }
 
   return <section className="workspace" hidden={!active} aria-label={`${chat.name} chat`}>
+    <CodexThreadReference chatId={chat.id} chatName={chat.name} active={active} refresh={threadRefresh} />
 
     <div className="history-container">
     <div ref={history} className="history workspace-scroll w-full min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5%] pt-6 pb-2" aria-live="polite" onScroll={(event) => { const panel = event.currentTarget; followHistory.current = panel.scrollHeight - panel.scrollTop - panel.clientHeight < 64; setAwayFromEnd(!followHistory.current); }}>
@@ -286,12 +299,12 @@ export function Conversation({ chat, onConnectionChange, active = true }: { chat
       {entries.some((entry) => entry.routine) && <details className="text-xs text-neutral-600"><summary className="cursor-pointer py-2 font-medium">Turn status and effective settings</summary>{entries.filter((entry) => entry.routine).map((entry) => <pre className="whitespace-pre-wrap break-words py-1" key={entry.id}>{entry.text}</pre>)}</details>}
       {busy && !approval && <div className="working"><span className="pulse" /> {selection.provider === "gemini" ? "Gemini" : "Codex"} is working</div>}
 
-      {approval && <section className="approval" aria-label="Approval request"><h2>Codex needs your approval</h2><p>Review the requested action before continuing.</p><pre>{JSON.stringify(approval.params, null, 2)}</pre><div className="actions"><Button type="button" onClick={() => void decide("accept")} disabled={deciding}>Approve</Button><Button variant="outline" type="button" onClick={() => void decide("decline")} disabled={deciding}>Decline</Button></div></section>}
+      {approval && <section ref={approvalPanel} tabIndex={-1} className="approval" aria-label="Approval request"><h2>Codex needs your approval</h2><p>Review the requested action before continuing.</p><pre>{JSON.stringify(approval.params, null, 2)}</pre><div className="actions"><Button type="button" onClick={() => void decide("accept")} disabled={deciding}>Approve</Button><Button variant="outline" type="button" onClick={() => void decide("decline")} disabled={deciding}>Decline</Button></div></section>}
 
       <div ref={end} />
 
     </div>
-    {awayFromEnd && <button type="button" className="jump-to-latest" aria-label="Jump to latest message" title="Jump to latest message" onClick={() => { const panel = history.current; if (panel) { followHistory.current = true; panel.scrollTo({ top: panel.scrollHeight, behavior: "auto" }); setAwayFromEnd(false); } }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v15M6 13l6 6 6-6" /></svg></button>}
+    {awayFromEnd && <button type="button" className={`jump-to-latest ${approval ? "jump-to-approval" : ""}`} aria-label={approval ? "Review pending approval" : "Jump to latest message"} title={approval ? "Review pending approval" : "Jump to latest message"} onClick={() => { const panel = history.current; if (panel) { followHistory.current = true; panel.scrollTo({ top: panel.scrollHeight, behavior: "auto" }); setAwayFromEnd(false); if (approval && approvalPanel.current) { approvalPanel.current.scrollIntoView({ block: "start", behavior: "auto" }); approvalPanel.current.focus({ preventScroll: true }); } } }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v15M6 13l6 6 6-6" /></svg>{approval && <span>Approval requested</span>}</button>}
     </div>
 
     <form className="composer" onSubmit={(event) => void send(event)}>
@@ -299,14 +312,16 @@ export function Conversation({ chat, onConnectionChange, active = true }: { chat
 
       <label className="sr-only" htmlFor={promptId}>Message Codex</label>
 
-      <textarea ref={promptInput} className="chat-prompt" id={promptId} value={prompt} onChange={(event) => updatePrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask Codex to help with your work…" rows={3} />
+      <textarea ref={promptInput} className={`chat-prompt ${promptExpanded ? "chat-prompt-expanded" : ""}`} id={promptId} value={prompt} onChange={(event) => updatePrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask Codex to help with your work…" rows={3} />
 
-      {refineError && <p className="composer-error" role="alert">{refineError}</p>}
-      {sendError && <p className="composer-error" role="alert">{sendError}</p>}
+      <p className="prompt-retention-notice">Prompt attempts are saved in Prompt Manager. Avoid including secrets.</p>
+      {refineError && <div className="composer-error" role="alert"><p>{refineError}</p><p>A previous attempt may have reached the provider. Start a new attempt only if you want to retry.</p><button type="button" onClick={() => { refinementSubmission.current = null; setRefineError(""); }}>Start new refinement attempt</button></div>}
+      {sendError && <div className="composer-error" role="alert"><p>{sendError}</p><p>Check chat history before starting another attempt. The previous attempt may have reached the provider.</p><button type="button" onClick={() => { submission.current = null; setSendError(""); }}>Start new message attempt</button></div>}
 
       {refinedDraft && <div className="refinement-result"><p>Your draft changed while Codex refined it. Review the result before replacing your draft.</p><pre>{refinedDraft}</pre><button type="button" onClick={() => { updatePrompt(refinedDraft); setRefinedDraft(""); }}>Use refined prompt</button><button type="button" onClick={() => setRefinedDraft("")}>Dismiss</button></div>}
 
-      <div className="composer-controls"><AttachmentComposer attachments={attachments} setAttachments={setAttachments} disabled={busy || sending} onProcessingChange={setProcessing} /><button className="composer-icon" type="button" aria-label="Refine prompt" title={selection.provider === "gemini" ? "Prompt refinement is not available for Gemini" : "Refine prompt with Codex"} disabled={!preferencesReady || !connected || busy || sending || refining || !prompt.trim() || selection.provider !== "codex" || !selection.model} onClick={() => void refine()}><ComposerIcon name="wand" /></button>{refining && <span className="composer-progress" role="status">Refining…</span>}{preferencesReady ? <ProviderSelector refreshKey={providerRefresh} base={base} value={selection} onChange={(value) => { selectionVersion.current++; setSelection(value); }} disabled={busy || sending || refining} /> : !preferencesError && <span role="status">Loading chat preferences…</span>}{preferencesError && <span role="status">{preferencesError} <button type="button" onClick={() => { preferencesDirty.current = true; setPreferencesError(""); setPreferencesVersion((value) => value + 1); }}>Retry</button></span>}<VoiceInput disabled={busy || sending} onTranscript={(text) => { promptVersion.current++; setPrompt((current) => current + (current && !/\s$/.test(current) ? " " : "") + text); }} /><button className="composer-icon composer-send" type="submit" aria-label="Send message" title="Send message (Enter)" disabled={!preferencesReady || !connected || busy || sending || refining || processing || !selection.model || (!prompt.trim() && !attachments.length)}><ComposerIcon name="send" /></button></div>
+      {preferencesError && <div className="composer-preferences-error" role="status">{preferencesError} <button type="button" onClick={() => { preferencesDirty.current = true; setPreferencesError(""); setPreferencesVersion((value) => value + 1); }}>Retry</button></div>}
+      <div className="composer-controls"><button type="button" className="composer-icon" aria-label={promptExpanded ? "Collapse input" : "Expand input"} title={promptExpanded ? "Collapse input" : "Expand input"} aria-expanded={promptExpanded} aria-controls={promptId} onClick={() => setPromptExpanded((value) => !value)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={promptExpanded ? "m7 10 5 5 5-5" : "m7 14 5-5 5 5"} /></svg></button><AttachmentComposer attachments={attachments} setAttachments={setAttachments} disabled={busy || sending} onProcessingChange={setProcessing} /><button className="composer-icon" type="button" aria-label="Refine prompt" title={selection.provider === "gemini" ? "Prompt refinement is not available for Gemini" : "Refine prompt with Codex"} disabled={!preferencesReady || !connected || busy || sending || refining || !prompt.trim() || selection.provider !== "codex" || !selection.model} onClick={() => void refine()}><ComposerIcon name="wand" /></button>{refining && <span className="composer-progress" role="status">Refining…</span>}<span className="composer-spacer" aria-hidden="true" /><div className="composer-right">{preferencesReady ? <ProviderSelector refreshKey={providerRefresh} base={base} value={selection} onChange={(value) => { selectionVersion.current++; setSelection(value); }} disabled={busy || sending || refining} /> : !preferencesError && <span role="status">Loading chat preferences…</span>}<VoiceInput disabled={busy || sending} onTranscript={(text) => { promptVersion.current++; setPrompt((current) => current + (current && !/\s$/.test(current) ? " " : "") + text); }} /><button className="composer-icon composer-send" type="submit" aria-label="Send message" title="Send message (Enter)" disabled={!preferencesReady || !connected || busy || sending || refining || processing || !selection.model || (!prompt.trim() && !attachments.length)}><ComposerIcon name="send" /></button></div></div>
 
     </form>
 
@@ -368,4 +383,16 @@ async function sendChatMessage(path: string, body: unknown, signal: AbortSignal)
     const result = await response.json().catch(() => ({})) as { error?: string; message?: string };
     throw new Error(result.error ?? result.message ?? `Request failed (${response.status})`);
   }
+}
+
+async function loadChatPreferences(chatId: string): Promise<{ effective: { selection: ProviderSelection } }> {
+  const response = await fetch(`/api/preferences?chatId=${encodeURIComponent(chatId)}`);
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({})) as { error?: string; message?: string };
+    if (response.status === 404 && /^Route GET:\/api\/preferences(?:\?[^ ]*)? not found$/.test(result.message ?? "")) {
+      throw new Error("The running API does not support preferences. Restart the API after active work finishes, then retry.");
+    }
+    throw new Error(result.error ?? result.message ?? `Request failed (${response.status})`);
+  }
+  return response.json();
 }

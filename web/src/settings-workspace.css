@@ -2,14 +2,21 @@
 .settings-workspace h1, .settings-workspace h2, .settings-workspace h3, .settings-workspace p { margin: 0; }
 .settings-workspace header, .settings-body { display: flex; flex-direction: column; gap: 14px; max-width: 780px; }
 .settings-workspace p, .settings-statuses span { color: #525252; line-height: 1.5; }
-.settings-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid #e5e5e5; }
+.settings-layout { flex: 1; display: grid; grid-template-columns: 208px minmax(0, 1fr); gap: 32px; align-items: stretch; min-width: 0; }
+.settings-tabs { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-right: 16px; border-right: 1px solid #bdbdbd; }
+.settings-panel { min-width: 0; }
 .settings-tabs button, .settings-statuses button, .settings-actions button { border: 1px solid #ddd; border-radius: 6px; background: white; padding: 8px 12px; color: #262626; }
-.settings-tabs button[aria-current="page"] { background: #262626; color: white; border-color: #262626; }
+.settings-tabs button { border-color: transparent; background: transparent; text-align: left; line-height: 1.4; }
+.settings-tabs button:hover { background: #f3f3f3; }
+.settings-tabs button[aria-selected="true"] { background: #e9e9e9; color: #171717; font-weight: 600; }
+.settings-tabs button:focus-visible, .settings-panel:focus-visible { outline: 2px solid #525252; outline-offset: 2px; }
 .settings-statuses { display: flex; flex-direction: column; gap: 12px; }
 .settings-statuses > div { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.provider-check { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.provider-check button { border: 1px solid #ddd; border-radius: 6px; background: white; padding: 8px 12px; color: #262626; }
 .settings-fields { display: flex; flex-wrap: wrap; gap: 16px; margin: 0; padding: 0; border: 0; }
 .settings-fields label { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
 .settings-fields select { border: 1px solid #ccc; border-radius: 6px; background: white; color: #262626; padding: 8px; }
 .settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .settings-error { color: #a32222 !important; }
-@media (max-width: 650px) { .settings-statuses > div { grid-template-columns: 1fr; } .settings-workspace { padding: 24px 18px; } }
+@media (max-width: 650px) { .settings-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; } .settings-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0 0 12px; border-right: 0; border-bottom: 1px solid #e5e5e5; } .settings-statuses > div { grid-template-columns: 1fr; } .settings-workspace { padding: 24px 18px; } .settings-fields label { min-width: min(180px, 100%); } }

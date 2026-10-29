@@ -10,9 +10,9 @@ Codeit is a local React and Fastify application. This document records current b
 | --- | --- | --- |
 | Project settings | Project identity, folder, requested access and approval settings | `api/src/project-settings.ts`, `api/src/store.ts` |
 | Conversation | Chat history, provider binding, Codex events and approval requests | `api/src/chat.ts`, `api/src/store.ts`, `web/src/conversation.tsx` |
-| Project work | Idea, approved plan, task state, run evidence and review decisions | `api/src/loop-store.ts`, `api/src/loop-runner.ts`, `api/src/loop-routes.ts`, `web/src/project-loop.tsx` |
+| Project work | Project ideas, approved plan, task state, run evidence and review decisions | `api/src/ideas-store.ts`, `api/src/loop-store.ts`, `api/src/loop-runner.ts`, `api/src/loop-routes.ts`, `web/src/project-loop.tsx` |
 | Supervisor | Project supervisor conversation, approval requests, and persisted status | `api/src/supervisor.ts`, `api/src/supervisor-store.ts`, `api/src/supervisor-routes.ts` |
-| Documentation | Read-only access to configured Markdown sources and inert presentation | `api/src/docs-source.ts`, `api/src/docs-routes.ts`, `web/src/docs-workspace.tsx` |
+| Documentation | Configured Markdown sources, inert presentation, and new-file handoff | `api/src/docs-source.ts`, `api/src/docs-routes.ts`, `web/src/docs-workspace.tsx` |
 | Provider integration | Codex transport and Gemini requests | `api/src/codex-rpc.ts`, `api/src/gemini.ts`, `api/src/providers.ts` |
 | Local shell | API composition, access checks and startup | `api/src/server.ts`, `tools/preflight.mjs` |
 
@@ -38,7 +38,7 @@ For a new domain event, define its owner, name, version, payload, ordering, dura
 
 The supervisor uses a separate project conversation. It can propose work, but the user must approve and start tasks through project work controls. Its read-only setting does not confine reads to the project folder. A saved supervisor thread requires its original folder and approval setting for follow-up turns.
 
-The documentation API uses two configured source roots. It lists and reads Markdown and MDX under those roots. The viewer treats MDX as inert content. Assist rules remain outside those roots and are not viewable there. Root containment is a documentation access rule, not Codex read isolation.
+The documentation API uses two configured source roots. It lists and reads Markdown and MDX under those roots. It can create a new Markdown file in an available root through an explicit handoff. It cannot replace existing files. The viewer treats MDX as inert content. A rule document is not automatically enforced. Assist rules remain outside those roots and are not viewable there. Root containment is a documentation access rule, not Codex read isolation. See the [Ideas contract](ideas-contract.md).
 
 ## Task lifecycle
 
@@ -49,5 +49,7 @@ The plan pins the folder and requested permissions. Codeit checks these settings
 ## Persistence and integration limits
 
 The stores persist domain documents in SQLite under `CODEIT_DATA_DIR` or `.codeit`. The chat store batches streaming deltas and flushes at shutdown. Loop and supervisor stores retain run and approval evidence. See [SQLite storage](storage.md) for import and recovery.
+
+Prompt Manager records submission attempts and revisions in the same SQLite database. Its contract, sensitive-data policy and current capture limits are in [Prompt Manager](prompt-manager.md). An attempt does not prove provider acceptance.
 
 No distributed event broker, cross-module authorization layer, or independently verified sandbox boundary is established by this document. Use disposable fixtures to test transitions, approvals, failure and restart. See the [verification template](templates/verification.md).

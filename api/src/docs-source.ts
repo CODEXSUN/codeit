@@ -1,4 +1,4 @@
-import { lstatSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { closeSync, lstatSync, openSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 export type DocsRoot = { id: string; label: string; folder: string };
@@ -33,6 +33,25 @@ export class DocsSource {
     const info = statSync(actual);
     if (!info.isFile() || info.size > 256 * 1024) throw new Error("Documentation file is unavailable or exceeds 256 KiB.");
     return { root: id, path: segments.split(sep).join("/"), content: readFileSync(actual, "utf8") };
+  }
+  create(id: string, name: string, content: string, kind: "document" | "rule") {
+    const source = this.roots.find((item) => item.id === id);
+    if (!source || (kind === "rule" && id !== "codeit")) throw new Error("Destination is not allowed.");
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}\.md$/.test(name) || (kind === "rule" && !name.startsWith("rule-"))) throw new Error("Use a simple Markdown filename; rules must start with rule-.");
+    if (Buffer.byteLength(content, "utf8") > 256 * 1024) throw new Error("Document exceeds 256 KiB.");
+    const root = realpathSync(source.folder);
+    if (!statSync(root).isDirectory()) throw new Error("Documentation destination is unavailable.");
+    const target = resolve(root, name);
+    let fd: number;
+    try { fd = openSync(target, "wx", 0o600); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error("A file with that name already exists. Choose another name.");
+      throw new Error("Could not create the document in the selected destination.");
+    }
+    try { writeFileSync(fd, content, "utf8"); }
+    catch { throw new Error("Document write failed. A new incomplete file may remain; inspect the destination before retrying."); }
+    finally { closeSync(fd); }
+    return { root: id, path: name };
   }
   private walk(root: string, folder: string, id: string, files: { root: string; path: string }[], depth: number) {
     if (depth > 8 || files.length >= 1000) return;

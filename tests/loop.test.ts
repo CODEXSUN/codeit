@@ -7,6 +7,7 @@ import Fastify from "fastify";
 import { Store } from "../api/src/store.js";
 import { CodexRpc } from "../api/src/codex-rpc.js";
 import { registerLoopRoutes } from "../api/src/loop-routes.js";
+import { PromptManager } from "../api/src/prompt-manager.js";
 import { reviewEvidence } from "../api/src/review-evidence.js";
 
 test("review evidence removes only an exact repeated agent message", () => {
@@ -36,7 +37,7 @@ test("explicit approval, worker, review, iteration and restart use project-scope
   const projectStore = new Store(dir);
   const project = projectStore.createProject("fixture", { folder: dir, sandbox: "read-only", approvalPolicy: "untrusted" });
   const app = Fastify();
-  registerLoopRoutes(app, projectStore);
+  registerLoopRoutes(app, projectStore).setPromptManager(new PromptManager(dir));
   let rpc: CodexRpc | undefined;
   let prompt = "";
   t.mock.method(CodexRpc.prototype, "connect", async function () { rpc = this; });
@@ -55,6 +56,9 @@ test("explicit approval, worker, review, iteration and restart use project-scope
     assert.equal((await call("PUT", "/idea", { original: "  idea  ", refined: "" })).statusCode, 200);
     let result = await call("PUT", "/plan", { summary: "Plan", criteria: ["Check it"], tasks: [{ title: "First", description: "Do it", dependencies: [] }, { title: "Second", description: "Then do it", dependencies: ["0"] }] });
     const [first, second] = result.json().tasks;
+    assert.equal((await call("PUT", "/plan", { summary: "Replacement", criteria: ["Check it"], tasks: [{ title: "New", description: "Do it", dependencies: [] }] })).statusCode, 409);
+    assert.equal((await call("PUT", "/idea", { original: "Replacement", refined: "" })).statusCode, 409);
+    assert.equal((await call("GET", "")).json().plan.summary, "Plan");
     assert.equal((await call("POST", `/tasks/${first.id}/start`, {})).statusCode, 409);
     assert.equal((await call("POST", "/approve", {})).statusCode, 200);
     assert.equal((await call("POST", `/tasks/${second.id}/start`, {})).statusCode, 409);
@@ -71,6 +75,9 @@ test("explicit approval, worker, review, iteration and restart use project-scope
     assert.equal((await call("POST", `/tasks/${first.id}/review`, {})).statusCode, 200);
     await new Promise((resolve) => setImmediate(resolve));
     assert.match(prompt, /worker evidence/);
+    const audited = new PromptManager(dir).list(project.id);
+    assert.equal(audited.filter((entry) => entry.source === "worker").length, 1);
+    assert.equal(audited.filter((entry) => entry.source === "review").length, 1);
     rpc!.onEvent({ method: "turn/completed", params: { threadId: "thread", turn: { status: "completed" } } });
     assert.equal((await call("POST", `/tasks/${first.id}/resolve`, { decision: "changes_requested", findings: "" })).statusCode, 409);
     assert.equal((await call("POST", `/tasks/${first.id}/resolve`, { decision: "changes_requested", findings: "Fix the issue" })).statusCode, 200);

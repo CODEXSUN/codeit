@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
+import { codexExecutable } from "./codex-executable.js";
 
 export type RpcMessage = { id?: string | number; method?: string; params?: any; result?: any; error?: { message: string } };
 
@@ -42,7 +43,7 @@ export class CodexRpc {
   }
 
   private async initialize() {
-    const child = spawn("codex", ["app-server", "--stdio"], { windowsHide: true, stdio: "pipe" });
+    const child = spawn(codexExecutable(), ["app-server", "--stdio"], { windowsHide: true, stdio: "pipe" });
     this.child = child;
     child.stderr.on("data", () => {});
     child.stdin.on("error", () => this.disconnected(child, "The Codex connection closed."));

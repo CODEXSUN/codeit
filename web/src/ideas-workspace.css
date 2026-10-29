@@ -1,0 +1,12 @@
+.ideas-workspace { padding: 24px; }
+.ideas-workspace header { display: flex; align-items: center; justify-content: space-between; }
+.ideas-layout { display: grid; grid-template-columns: minmax(160px, 240px) minmax(0, 1fr); gap: 24px; }
+.ideas-layout nav { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.ideas-layout nav button { text-align: left; padding: 8px; }
+.ideas-layout form, .ideas-layout label { display: grid; gap: 8px; }
+.ideas-layout input, .ideas-layout textarea { width: 100%; padding: 8px; }
+.ideas-stages { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.idea-handoff { margin-top: 24px; border-top: 1px solid #ddd; padding-top: 16px; }
+.idea-handoff form, .idea-handoff label { display: grid; gap: 8px; }
+.idea-handoff textarea, .idea-handoff input, .idea-handoff select { width: 100%; padding: 8px; }
+@media (max-width: 650px) { .ideas-layout { grid-template-columns: 1fr; } }

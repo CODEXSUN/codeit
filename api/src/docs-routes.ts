@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { DocsSource } from "./docs-source.js";
 import { resolveFolder } from "./project-settings.js";
 import { Store } from "./store.js";
+import { z } from "zod";
 
 export function registerDocsRoutes(app: FastifyInstance, projects: Store) {
   const docs = new DocsSource([
@@ -29,5 +30,12 @@ export function registerDocsRoutes(app: FastifyInstance, projects: Store) {
     if (!projects.project(req.params.id)) return reply.code(404).send({ error: "Project not found." });
     try { return docs.read(req.query.root ?? "", req.query.path ?? ""); }
     catch { return reply.code(400).send({ error: "Documentation file is unavailable or not allowed." }); }
+  });
+  app.post<{ Params: Params }>("/api/projects/:id/docs/file", async (req, reply) => {
+    if (!projects.project(req.params.id)) return reply.code(404).send({ error: "Project not found." });
+    const input = z.object({ root: z.string(), name: z.string(), content: z.string().max(256 * 1024), kind: z.enum(["document", "rule"]) }).strict().safeParse(req.body);
+    if (!input.success) return reply.code(400).send({ error: "Invalid document input." });
+    try { return reply.code(201).send(docs.create(input.data.root, input.data.name, input.data.content, input.data.kind)); }
+    catch (error) { return reply.code(409).send({ error: error instanceof Error ? error.message : "Could not create document." }); }
   });
 }

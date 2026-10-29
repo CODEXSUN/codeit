@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { DummyDriver, Kysely, SqliteAdapter, SqliteIntrospector, SqliteQueryCompiler, type CompiledQuery } from "kysely";
 
-type Domain = "projects" | "loops" | "supervisors" | "preferences";
+type Domain = "projects" | "loops" | "supervisors" | "preferences" | "ideas";
 type Database = { documents: { domain: string; body: string; revision: number } };
 const query = new Kysely<Database>({ dialect: {
   createAdapter: () => new SqliteAdapter(),

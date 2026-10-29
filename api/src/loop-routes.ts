@@ -6,14 +6,18 @@ import { LoopStore } from "./loop-store.js";
 import { LoopRunner } from "./loop-runner.js";
 import { Store } from "./store.js";
 import { resolveFolder } from "./project-settings.js";
+import { IdeasStore } from "./ideas-store.js";
+import { registerPlanRefinement } from "./plan-refinement.js";
+import { PromptManager } from "./prompt-manager.js";
 
 const text = z.string().max(20_000).refine((value) => Boolean(value.trim()), "Text is required.");
-const ideaSchema = z.object({ original: text, refined: z.string().max(20_000) });
-const planSchema = z.object({ summary: text, criteria: z.array(text).min(1).max(20), tasks: z.array(z.object({ title: z.string().max(200).refine((value) => Boolean(value.trim()), "Title is required."), description: text, dependencies: z.array(z.string()).max(20) })).min(1).max(20) });
+const ideaSchema = z.object({ original: text, refined: z.string().max(20_000), replaceExistingPlan: z.boolean().optional() });
+const planSchema = z.object({ summary: text, criteria: z.array(text).min(1).max(20), tasks: z.array(z.object({ title: z.string().max(200).refine((value) => Boolean(value.trim()), "Title is required."), description: text, dependencies: z.array(z.string()).max(20) })).min(1).max(20), replaceExisting: z.boolean().optional() });
 const manualReviewSchema = z.object({ workerRunId: z.string().min(1), reviewer: z.string().trim().min(1).max(200), scope: text, omissions: text, findings: text, confirmed: z.literal(true) });
 type Params = { id: string; taskId: string; approvalId: string };
 
-export function registerLoopRoutes(app: FastifyInstance, projects: Store) {
+export function registerLoopRoutes(app: FastifyInstance, projects: Store, prompts = new PromptManager()) {
+  registerPlanRefinement(app, projects, prompts);
   const loops = new LoopStore();
   const runner = new LoopRunner(loops);
   const base = "/api/projects/:id/loop";
@@ -37,8 +41,18 @@ export function registerLoopRoutes(app: FastifyInstance, projects: Store) {
     if (!approved || resolveFolder(settings.folder) !== approved.folder || settings.sandbox !== approved.sandbox || settings.approvalPolicy !== approved.approvalPolicy) throw new Error("Project folder or permissions differ from the approved plan. Restore the approved settings before continuing.");
     return settings;
   }
-  route("/idea", "PUT", (id, _params, body) => { if (runner.isActive(id)) throw new Error("A run is active."); return loops.setIdea(id, ideaSchema.parse(body)); });
-  route("/plan", "PUT", (id, _params, body) => { if (runner.isActive(id)) throw new Error("A run is active."); return loops.setPlan(id, planSchema.parse(body)); });
+  route("/idea", "PUT", (id, _params, body) => { if (runner.isActive(id)) throw new Error("A run is active."); const input = ideaSchema.parse(body); if (loops.get(id).plan && !input.replaceExistingPlan) throw new Error("Confirm removal of the saved draft plan and tasks."); return loops.setIdea(id, { original: input.original, refined: input.refined }); });
+  route("/idea/from-saved", "POST", (id, _params, body) => {
+    const input = z.object({ ideaId: z.string().uuid() }).strict().parse(body);
+    const idea = new IdeasStore().get(id, input.ideaId);
+    if (!idea) throw new Error("Idea not found.");
+    const state = loops.get(id);
+    if (runner.isActive(id) || state.active || state.idea || state.plan || state.tasks.length) throw new Error("Project work already contains an idea, plan, or tasks. Existing work cannot be replaced here.");
+    const original = idea.content.trim() ? idea.content : idea.title;
+    if (original.length > 20_000) throw new Error("The idea exceeds the 20,000 character project-work limit. Shorten it before starting a plan.");
+    return loops.setIdea(id, { original, refined: "", ideaId: idea.id });
+  });
+  route("/plan", "PUT", (id, _params, body) => { if (runner.isActive(id)) throw new Error("A run is active."); const input = planSchema.parse(body); if (loops.get(id).plan && !input.replaceExisting) throw new Error("Confirm replacement of the saved draft plan and tasks."); return loops.setPlan(id, input); });
   route("/approve", "POST", (id) => {
     const state = loops.get(id);
     if (!state.plan || state.plan.approved || !state.tasks.length) throw new Error("A draft plan is required.");

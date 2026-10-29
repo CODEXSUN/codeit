@@ -6,6 +6,7 @@ import { test } from "node:test";
 import Fastify from "fastify";
 import { CodexRpc } from "../api/src/codex-rpc.js";
 import { registerLoopRoutes } from "../api/src/loop-routes.js";
+import { PromptManager } from "../api/src/prompt-manager.js";
 import { Store } from "../api/src/store.js";
 import { LoopStore } from "../api/src/loop-store.js";
 
@@ -25,7 +26,7 @@ test("manual review follows a failed model review and preserves evidence across 
     return {};
   });
   const base = `/api/projects/${project.id}/loop`;
-  let app = Fastify(); registerLoopRoutes(app, projects);
+  let app = Fastify(); registerLoopRoutes(app, projects).setPromptManager(new PromptManager(dir));
   const call = (method: "GET" | "PUT" | "POST", path: string, payload?: unknown) => app.inject({ method, url: base + path, payload });
   try {
     await call("PUT", "/idea", { original: "idea", refined: "" });
@@ -92,7 +93,7 @@ test("manual review can request changes and keeps its recorded decision", async 
   state.plan = { summary: "plan", criteria: ["ok"], approved: true, approvedSettings: settings };
   state.tasks = [{ id: "task", title: "task", description: "work", dependencies: [], status: "needs_review", runs: [{ id: "worker", kind: "worker", status: "completed", events: [{ type: "response", text: "evidence" }] }] }];
   setup.save();
-  const app = Fastify(); registerLoopRoutes(app, projects);
+  const app = Fastify(); registerLoopRoutes(app, projects).setPromptManager(new PromptManager(dir));
   const base = `/api/projects/${project.id}/loop/tasks/task`;
   try {
     const input = { workerRunId: "worker", reviewer: "Reviewer", scope: "all", omissions: "none", findings: "fix issue", confirmed: true };

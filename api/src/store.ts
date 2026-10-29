@@ -6,11 +6,13 @@ import { projectSettingsSchema, type ProjectSettings } from "./project-settings.
 const eventSchema = z.object({ type: z.string() }).passthrough();
 const geminiPartSchema = z.object({ text: z.string().optional(), inlineData: z.object({ mimeType: z.string(), data: z.string() }).optional(), thought: z.boolean().optional(), thoughtSignature: z.string().optional() }).passthrough();
 const geminiContentSchema = z.object({ role: z.enum(["user", "model"]), parts: z.array(geminiPartSchema) });
-const chatSchema = z.object({ id: z.string(), name: z.string(), archived: z.boolean().optional(), threadId: z.string().optional(), geminiHistory: z.array(geminiContentSchema).optional(), events: z.array(eventSchema) });
+const nameSyncSchema = z.object({ threadId: z.string(), name: z.string() });
+const chatSchema = z.object({ id: z.string(), name: z.string(), archived: z.boolean().optional(), threadId: z.string().optional(), nameSync: nameSyncSchema.optional(), geminiHistory: z.array(geminiContentSchema).optional(), events: z.array(eventSchema) });
 const projectSchema = z.object({ id: z.string(), name: z.string(), settings: projectSettingsSchema.optional(), chats: z.array(chatSchema) });
 export const dataSchema = z.object({ projects: z.array(projectSchema) });
 export type StoredChat = z.infer<typeof chatSchema>;
 export type Event = z.infer<typeof eventSchema>;
+export type ChatNameBaseline = z.infer<typeof nameSyncSchema>;
 
 export class Store {
   private readonly repository: DocumentRepository;
@@ -73,6 +75,21 @@ export class Store {
     const chat = this.chat(id);
     if (!chat) return false;
     chat.name = name;
+    this.save();
+    return true;
+  }
+
+  chatNameBaseline(id: string): ChatNameBaseline | undefined {
+    const baseline = this.chat(id)?.nameSync;
+    return baseline && { ...baseline };
+  }
+
+  setChatNameBaseline(id: string, expectedThreadId: string, expectedName: string, expectedBaseline: ChatNameBaseline | null) {
+    const chat = this.chat(id);
+    const current = chat?.nameSync;
+    const sameBaseline = expectedBaseline === null ? current === undefined : current?.threadId === expectedBaseline.threadId && current.name === expectedBaseline.name;
+    if (!chat || !z.uuid().safeParse(expectedThreadId).success || !expectedName.trim() || expectedName.length > 100 || chat.threadId !== expectedThreadId || chat.name !== expectedName || !sameBaseline) return false;
+    chat.nameSync = { threadId: expectedThreadId, name: expectedName };
     this.save();
     return true;
   }
