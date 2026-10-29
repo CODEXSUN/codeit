@@ -1,0 +1,13 @@
+/* Keep chat scrolling inside the workspace so the composer remains visible. */
+.app:has(.workspace-slot:not([hidden]) > .workspace) { height: 100dvh; overflow: hidden; }
+.main-panel:has(.workspace-slot:not([hidden]) > .workspace) { min-height: 0; }
+.workspace-slot > .workspace { width: 100%; min-width: 0; min-height: 0; padding: 0 0 20px; gap: 16px; overflow: hidden; }
+.workspace-slot > .workspace > .history { width: 90%; min-height: 0; margin: 0 auto; padding: 24px 2px 8px; overflow-y: auto; }
+.workspace-slot > .workspace > .composer { width: 90%; flex: 0 0 auto; max-height: 65dvh; margin: 0 auto; overflow-y: auto; }
+.workspace-slot > .workspace > .composer:focus-within { border-color: #525252; box-shadow: 0 0 0 2px #a3a3a3; }
+.workspace-slot > .workspace > .composer > #prompt { min-height: 72px; max-height: 144px; line-height: 24px; }
+.workspace-slot > .workspace > .composer > #prompt:focus-visible { outline: none; }
+@media (max-width: 650px) {
+  .workspace-slot > .workspace { padding-bottom: 12px; gap: 10px; }
+  .workspace-slot > .workspace > .history { padding-top: 16px; }
+}

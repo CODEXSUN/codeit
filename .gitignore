@@ -147,3 +147,12 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Local Codeit data
+.codeit/
+
+# Local Codeit data
+.codeit/
+
+# Local IDE settings
+.idea/

@@ -1,0 +1,28 @@
+.project-work-links { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
+.project-work-links h2 { padding: 0 4px; color: #737373; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.project-work-links button { border: 0; border-radius: 6px; background: transparent; padding: 8px; color: #525252; text-align: left; font-size: 13px; }
+.project-work-links button:hover, .project-work-links button[aria-current="page"] { background: #e7e7e7; color: #171717; }
+.project-loop { width: min(100%, 900px); margin: 0 auto; padding: 28px 32px 48px; display: flex; flex-direction: column; gap: 28px; }
+.loop-heading, .loop-task-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.loop-heading p, .loop-section > p { color: #737373; font-size: 14px; line-height: 22px; }
+.loop-heading > span, .loop-status { color: #525252; font-size: 12px; background: #f1f1f1; border-radius: 999px; padding: 5px 9px; white-space: nowrap; text-transform: capitalize; }
+.loop-section { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid #e5e5e5; padding-top: 22px; }
+.loop-section h2, .loop-approval h2 { font-size: 17px; }.loop-section h3 { font-size: 14px; }.loop-section h4 { font-size: 13px; }
+.loop-form, .loop-draft-tasks, .loop-task, .loop-review, .loop-saved { display: flex; flex-direction: column; gap: 12px; }
+.loop-form label, .loop-review label, .loop-draft-tasks fieldset > label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+.loop-form label span { font-weight: 400; color: #737373; }
+.loop-form textarea, .loop-review textarea, .loop-form input:not([type="checkbox"]) { border: 1px solid #d4d4d4; border-radius: 6px; padding: 8px 10px; min-height: 0; background: white; font-size: 14px; line-height: 21px; }
+.loop-form button[type="submit"] { align-self: flex-start; }
+.loop-draft-tasks fieldset { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; }
+.loop-draft-tasks legend { padding: 0 4px; font-size: 13px; font-weight: 600; }
+.loop-check { flex-direction: row !important; align-items: center; margin-top: 6px; font-weight: 400 !important; }
+.loop-link { align-self: flex-start; border: 0; padding: 4px 0; background: none; text-decoration: underline; color: #525252; font-size: 13px; }
+.loop-saved, .loop-task, .loop-approval { padding: 16px; border: 1px solid #e5e5e5; border-radius: 8px; background: #fafafa; }
+.loop-task p, .loop-saved p, .loop-saved li, .loop-approval p { font-size: 14px; line-height: 22px; white-space: pre-wrap; }
+.loop-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.loop-task details { border-top: 1px solid #e5e5e5; padding-top: 8px; font-size: 13px; }.loop-task summary { cursor: pointer; font-weight: 600; }
+.loop-task pre, .loop-approval pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto; font: 13px/20px ui-monospace, Consolas, monospace; }
+.loop-error { color: #991b1b; background: #fef2f2; padding: 10px; border-radius: 6px; font-size: 13px; }
+.loop-approval { display: flex; flex-direction: column; gap: 12px; border-color: #a3a3a3; }
+@media (max-width: 650px) { .project-loop { padding: 20px 18px 32px; } .loop-heading { flex-wrap: wrap; } }
+.manual-review { border-top: 1px solid #e5e5e5; padding-top: 8px; }.manual-review > summary { cursor: pointer; font-size: 13px; font-weight: 600; }.manual-review form { padding-top: 12px; }.manual-review-evidence { display: flex; flex-direction: column; gap: 6px; }.manual-review-evidence pre { margin: 0; }
